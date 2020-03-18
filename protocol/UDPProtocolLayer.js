@@ -1,3 +1,4 @@
+const decoders = require('cap').decoders
 const {dataToArrayBuffer} = require('../utils')
 
 class UDPProtocolLayer {
@@ -59,8 +60,8 @@ class UDPProtocolLayer {
     return header
   }
 
-  handlePacket(packet) {
-
+  static handlePacket(packet) {
+    return decoders.UDP(packet)
   }
 }
 

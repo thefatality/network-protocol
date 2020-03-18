@@ -1,4 +1,10 @@
-const {addrToArrayBuffer, dataToArrayBuffer} = require('../utils')
+const decoders = require('cap').decoders
+const PROTOCOL = decoders.PROTOCOL
+const {
+  addrToArrayBuffer,
+  dataToArrayBuffer,
+  calcChecksum,
+} = require('../utils')
 
 class IPProtocolLayer {
   static IP_HEADER_MAX_LENGTH = 60
@@ -36,19 +42,17 @@ class IPProtocolLayer {
 
   static OPTIONS_OFFSET = 20
 
-  static createHeader(headerInfo) {
+  static createPacket(headerInfo) {
     const {
       dstIp,
       srcIp,
       data,
       optionsData = null,
       tos = 0,
-      identification = 0, // 32-47 bit
-      flags = 0, // 48-51 bit
+      flags = 0b010, // 48-51 bit
       offset = 0, // 52-55 bit
       TTL = 64,
       protocol,
-      checkSum = 0,
     } = headerInfo
     const version = 4
 
@@ -68,34 +72,42 @@ class IPProtocolLayer {
 
     const headerLength = Math.ceil((optionsDataLen + IPProtocolLayer.IP_HEADER_FIXED_LENGTH) / 4)
     const totalLength = headerLength * 4 + dataLen
-    const headerPacket = new ArrayBuffer(totalLength)
+    const ipPacket = new ArrayBuffer(totalLength)
 
-    const versionAndHeaderLenView = new DataView(headerPacket, IPProtocolLayer.VERSION_AND_LENGTH_OFFSET, IPProtocolLayer.VERSION_AND_LENGTH_SIZE)
-    const tosView = new DataView(headerPacket, IPProtocolLayer.TOS_OFFSET, IPProtocolLayer.TOS_SIZE)
-    const totalLenView = new DataView(headerPacket, IPProtocolLayer.TOTAL_LENGTH_OFFSET, IPProtocolLayer.TOTAL_LENGTH_SIZE)
-    const identificationView = new DataView(headerPacket, IPProtocolLayer.IDENTIFICATION_OFFSET, IPProtocolLayer.IDENTIFICATION_SIZE)
-    const flagsAndOffsetView = new DataView(headerPacket, IPProtocolLayer.FLAGS_AND_OFFSET_OFFSET, IPProtocolLayer.FLAGS_AND_OFFSET_SIZE)
-    const ttlView = new DataView(headerPacket, IPProtocolLayer.TTL_OFFSET, IPProtocolLayer.TTL_SIZE)
-    const protocolView = new DataView(headerPacket, IPProtocolLayer.PROTOCOL_OFFSET, IPProtocolLayer.PROTOCOL_SIZE)
-    const checksumView = new DataView(headerPacket, IPProtocolLayer.CHECKSUM_OFFSET, IPProtocolLayer.CHECKSUM_SIZE)
-    const srcIpView = new DataView(headerPacket, IPProtocolLayer.SRC_IP_OFFSET, IPProtocolLayer.SRC_IP_SIZE)
-    const dstIpView = new DataView(headerPacket, IPProtocolLayer.DST_IP_OFFSET, IPProtocolLayer.DST_IP_SIZE)
+    const versionAndHeaderLenView = new DataView(ipPacket, IPProtocolLayer.VERSION_AND_LENGTH_OFFSET, IPProtocolLayer.VERSION_AND_LENGTH_SIZE)
+    const tosView = new DataView(ipPacket, IPProtocolLayer.TOS_OFFSET, IPProtocolLayer.TOS_SIZE)
+    const totalLenView = new DataView(ipPacket, IPProtocolLayer.TOTAL_LENGTH_OFFSET, IPProtocolLayer.TOTAL_LENGTH_SIZE)
+    const identificationView = new DataView(ipPacket, IPProtocolLayer.IDENTIFICATION_OFFSET, IPProtocolLayer.IDENTIFICATION_SIZE)
+    const flagsAndOffsetView = new DataView(ipPacket, IPProtocolLayer.FLAGS_AND_OFFSET_OFFSET, IPProtocolLayer.FLAGS_AND_OFFSET_SIZE)
+    const ttlView = new DataView(ipPacket, IPProtocolLayer.TTL_OFFSET, IPProtocolLayer.TTL_SIZE)
+    const protocolView = new DataView(ipPacket, IPProtocolLayer.PROTOCOL_OFFSET, IPProtocolLayer.PROTOCOL_SIZE)
+    const checksumView = new DataView(ipPacket, IPProtocolLayer.CHECKSUM_OFFSET, IPProtocolLayer.CHECKSUM_SIZE)
+    const srcIpView = new DataView(ipPacket, IPProtocolLayer.SRC_IP_OFFSET, IPProtocolLayer.SRC_IP_SIZE)
+    const dstIpView = new DataView(ipPacket, IPProtocolLayer.DST_IP_OFFSET, IPProtocolLayer.DST_IP_SIZE)
 
     versionAndHeaderLenView.setInt8(0, version << 4 | headerLength)
     tosView.setInt8(0, tos)
     totalLenView.setInt16(0, totalLength)
+
+    const identification = Math.floor(Math.random() * 65535)
+    console.log('identification = ', identification.toString(16));
     identificationView.setInt16(0, identification)
     flagsAndOffsetView.setInt16(0, flags << 13 | offset)
     ttlView.setInt8(0, TTL)
     protocolView.setInt8(0, protocol)
-    checksumView.setInt16(0, checkSum) // 直接设置为0
+
+    let checksum = 0
+    checksumView.setInt16(0, checksum)
 
     addrToArrayBuffer(srcIp, srcIpView)
     addrToArrayBuffer(dstIp, dstIpView)
 
+    checksum = calcChecksum(ipPacket)
+    checksumView.setInt16(0, checksum)
+
     // 可选字段内容
     if (optionsData && optionsData instanceof ArrayBuffer) {
-      const optionsView = new DataView(headerPacket, IPProtocolLayer.OPTIONS_OFFSET, (headerLength - 5) * 4)
+      const optionsView = new DataView(ipPacket, IPProtocolLayer.OPTIONS_OFFSET, (headerLength - 5) * 4)
       dataToArrayBuffer(optionsData, optionsView)
       // 填充0
       for (let i = 0; i < Math.ceil(optionsDataLen / 4) * 4 - optionsDataLen; ++i) {
@@ -105,15 +117,16 @@ class IPProtocolLayer {
 
     // 数据内容
     if (data && data instanceof ArrayBuffer) {
-      const dataView = new DataView(headerPacket, headerLength * 4, dataLen)
+      const dataView = new DataView(ipPacket, headerLength * 4, dataLen)
       dataToArrayBuffer(data, dataView)
     }
 
-    return headerPacket
+
+    return ipPacket
   }
 
-  handlePacket(packet) {
-
+  static handlePacket(packet) {
+    return decoders.IPV4(packet)
   }
 }
 

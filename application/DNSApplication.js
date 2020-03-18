@@ -121,21 +121,21 @@ class DNSApplication {
     }
 
     // 创建udp包头
-    const UDPPacket = ProtocolManager.getProtocol(PROTOCOL.IP.UDP).createHeader({
+    const UDPPacket = ProtocolManager.getProtocol(PROTOCOL.IP.UDP).createPacket({
       srcPort: this.port,
       dstPort: DNSApplication.UDP_DST_PORT,
       data: dnsPacket
     })
 
     // 创建ip包头
-    const IPPacket = ProtocolManager.getProtocol(PROTOCOL.IP.IPV4).createHeader({
+    const IPPacket = ProtocolManager.getProtocol(PROTOCOL.IP.IPV4).createPacket({
       dstIp: this.destIp,
       srcIp: config.LOCAL_IP,
       data: UDPPacket,
       protocol: PROTOCOL.IP.UDP
     })
 
-    ProtocolManager.sendData(IPPacket, config.ROUTER_IP)
+    ProtocolManager.sendPacket(IPPacket)
   }
 }
 

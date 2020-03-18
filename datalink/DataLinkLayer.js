@@ -1,9 +1,8 @@
 const os = require('os')
-const config = require('../config')
-const {addrToArrayBuffer, dataToArrayBuffer} = require('../utils')
-
 const Cap = require('cap').Cap
 const decoders = require('cap').decoders
+const config = require('../config')
+const {addrToArrayBuffer, dataToArrayBuffer} = require('../utils')
 const PROTOCOL = decoders.PROTOCOL
 
 class DataLinkLayer {
@@ -21,12 +20,12 @@ class DataLinkLayer {
   static ETHERNET_PACKET_OFFSET = 0
   static LINK_DATA_OFFSET = 14
 
-  constructor(filter = '', bufSize) {
+  constructor(bufSize, filter = '') {
     this.cap = new Cap()
     this.device = Cap.findDevice(config.LOCAL_IP)
     this.buffer = Buffer.alloc(bufSize)
     this.localMac = DataLinkLayer.getMac()
-    this.cap.open(this.device, filter, bufSize, this.buffer)
+    this.cap.open(this.device, filter, 1024 * 1024 * 10, this.buffer)
   }
 
   sendData(data, dstMac, ethernetType) {
@@ -46,10 +45,33 @@ class DataLinkLayer {
     this.cap.send(Buffer.from(dataLinkPacket), dataLinkPacket.byteLength)
   }
 
+  close() {
+    this.cap.close()
+  }
+
   receivePacket(cb) {
+    this.cap.setMinBytes && this.cap.setMinBytes(0)
     this.cap.on('packet', (nbytes, trunc) => {
-      cb(nbytes, trunc)
+      if (trunc) return
+      const {info, offset} = dataLinkerLayer.handlePacket(this.buffer.slice(0, nbytes))
+      if (info.dstmac !== dataLinkerLayer.localMac) return
+      const {type} = info
+      cb(this.buffer.slice(offset, nbytes), PROTOCOL.ETHERNET[type])
     })
+  }
+
+  handlePacket(packet) {
+    return decoders.Ethernet(packet)
+  }
+
+  static getMac() {
+    const cardList = Object.values(os.networkInterfaces())
+    for (let i = 0; i < cardList.length; ++i) {
+      const card = cardList[i]
+      if (card[card.length - 1].address === config.LOCAL_IP) {
+        return card[card.length - 1].mac
+      }
+    }
   }
 
   _createEthernetPacket(dstMac, ethernetType) {
@@ -64,18 +86,8 @@ class DataLinkLayer {
     ethernetTypeView.setInt16(0, ethernetType)
     return ethernetPacket
   }
-
-  static getMac() {
-    const cardList = Object.values(os.networkInterfaces())
-    for (let i = 0; i < cardList.length; ++i) {
-      const card = cardList[i]
-      if (card[card.length - 1].address === config.LOCAL_IP) {
-        return card[card.length - 1].mac
-      }
-    }
-  }
 }
 
-const dataLinkerLayer = new DataLinkLayer('', 20)
+const dataLinkerLayer = new DataLinkLayer(128, 'tcp')
 
 module.exports = dataLinkerLayer

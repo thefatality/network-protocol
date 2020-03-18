@@ -34,7 +34,7 @@ class ARPProtocolLayer {
   static DST_IP_ADDR_OFFSET = 24
   static DST_IP_ADDR_SIZE = 4
 
-  static createHeader(headerInfo) {
+  static createPacket(headerInfo) {
     const {
       hardwareType = 1,
       protocolType = PROTOCOL.ETHERNET.IPV4,

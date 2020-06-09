@@ -1,5 +1,5 @@
-const LOCAL_IP = '172.20.10.2'
-const ROUTER_IP = '172.20.10.1'
+const LOCAL_IP = '192.168.1.101'
+const ROUTER_IP = '192.168.1.1'
 
 module.exports = {
   LOCAL_IP,

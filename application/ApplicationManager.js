@@ -5,7 +5,7 @@ class ApplicationManager {
     ApplicationManager.applicationList.push(app)
   }
 
-  static distributeData(data) {
+  static dispatchData(data) {
     const {dstport: dstPort} = data
     ApplicationManager.applicationList.every(app => {
       if (app.srcPort === dstPort) {

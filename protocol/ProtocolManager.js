@@ -21,9 +21,6 @@ class ProtocolManager {
   }
 
   static getRouterMac() {
-    if (ProtocolManager.ipMacTable.get(config.ROUTER_IP)) {
-      return ProtocolManager.ipMacTable.get(config.ROUTER_IP)
-    }
     const arpPacket = ARPProtocolLayer.createPacket({
       srcMacAddr: dataLinkerLayer.localMac,
       dstIp: config.ROUTER_IP,
@@ -50,21 +47,25 @@ class ProtocolManager {
 
   static receivePacket(buffer, type) {
     let protocol = PROTOCOL.IP[type]
-    let data = null
+    let data
     while (true) {
-      data = ProtocolManager
-        .getProtocol(protocol)
-        .handlePacket(buffer)
-      const {offset, info} = data
-      buffer = buffer.slice(offset)
-      if (buffer.length === 0) break
-      protocol = info.protocol
+      try {
+        console.log('data = ', data);
+        data = ProtocolManager
+          .getProtocol(protocol)
+          .handlePacket(buffer)
+        if (data === null) break
+        const {offset, info} = data
+        buffer = buffer.slice(offset)
+        if (buffer.length === 0) break
+        protocol = info.protocol
+      } catch (e) {}
     }
-    ApplicationManager.distributeData(data.info)
-    dataLinkerLayer.close()
+    data && ApplicationManager.dispatchData(data.info)
+    // dataLinkerLayer.close()
   }
 }
 
-ProtocolManager.ipMacTable.set(config.ROUTER_IP, 'b6:f6:d6:ba:c7:64')
+ProtocolManager.ipMacTable.set(config.ROUTER_IP, 'fc:d7:33:4c:79:e8')
 
 module.exports = ProtocolManager

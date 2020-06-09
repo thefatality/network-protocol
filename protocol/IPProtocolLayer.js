@@ -5,6 +5,7 @@ const {
   dataToArrayBuffer,
   calcChecksum,
 } = require('../utils')
+const config = require('../config')
 
 class IPProtocolLayer {
   static IP_HEADER_MAX_LENGTH = 60
@@ -126,7 +127,9 @@ class IPProtocolLayer {
   }
 
   static handlePacket(packet) {
-    return decoders.IPV4(packet)
+    const res = decoders.IPV4(packet)
+    const {info: {dstaddr}} = res
+    return dstaddr === config.LOCAL_IP ? res : null
   }
 }
 

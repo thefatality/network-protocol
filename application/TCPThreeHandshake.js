@@ -53,11 +53,15 @@ class TCPThreeHandshake {
   }
 
   handleData(data) {
+    console.log(data)
     const {seqno, ackno, flags} = data
-    console.log(seqno, this.seqNum + 1 === ackno, flags)
     if (this.seqNum + 1 === ackno && flags === 0b000000010010 /* SYN ACK置为1*/) {
       this.replySynAck(seqno)
     }
+    setTimeout(() => {
+      console.log('release connection')
+      this.release(seqno)
+    }, 2000)
   }
 
   replySynAck(seqno) {
@@ -66,7 +70,7 @@ class TCPThreeHandshake {
       dstIp: this.dstIp,
       srcPort: this.srcPort,
       dstPort: this.dstPort,
-      seqNum: this.seqNum,
+      seqNum: this.seqNum + 1,
       ackNum: seqno + 1,
       UGR: false,
       ACK: true,
@@ -74,6 +78,26 @@ class TCPThreeHandshake {
       RST: false,
       SYN: false,
       FIN: false,
+      windowSize: 17520,
+      urgentPtr: 0,
+    })
+    this.sendData()
+  }
+
+  release(seqno) {
+    this.packet = TCPProtocolLayer.createHeader({
+      srcIp: this.srcIp,
+      dstIp: this.dstIp,
+      srcPort: this.srcPort,
+      dstPort: this.dstPort,
+      seqNum: this.seqNum + 2,
+      ackNum: 0,
+      UGR: false,
+      ACK: true,
+      PSH: false,
+      RST: false,
+      SYN: false,
+      FIN: true,
       windowSize: 17520,
       urgentPtr: 0,
     })
